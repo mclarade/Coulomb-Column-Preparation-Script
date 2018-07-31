@@ -14,7 +14,7 @@ CarbonWritten = 0
 OxygenWritten = 0
 HydrogenWritten = 0
 
-def retrieve_coordinates(wavefunction, Cutoff):
+def retrieve_coordinates(wavefunction):
     with open(wavefunction, 'r') as waveinput:
         wavelines = waveinput.readlines()
         x_list = []
@@ -38,7 +38,10 @@ def retrieve_coordinates(wavefunction, Cutoff):
     distance_and_identity_matrix = distance_matrix  +  np.identity(len(distance_matrix))
     inverse_distance_and_identity_matrix = 1/distance_and_identity_matrix
     inverse_distance_matrix = inverse_distance_and_identity_matrix - np.identity(len(distance_matrix))
-    inverse_distance_matrix[inverse_distance_matrix <= 1/Cutoff] = 0
+    try:
+        inverse_distance_matrix[inverse_distance_matrix <= 1/args.cutoff] = 0
+    except ValueError:
+        pass
     labels = np.asarray(label_list)
     charges = []
     for element in labels:
@@ -67,13 +70,13 @@ def gen_energy_list(int_file):
             if line.startswith('              K'):
                 floatenergy = float(line.split()[3])
     if atom_label == 'C':
-        for i in range(0, Folds):
+        for i in range(0, args.randomizations):
             CEnergyList.append(floatenergy)
     if atom_label == 'H':
-        for i in range(0, Folds):
+        for i in range(0, args.randomizations):
             HEnergyList.append(floatenergy)
     if atom_label == 'O':
-        for i in range(0, Folds):
+        for i in range(0, args.randomizations):
             OEnergyList.append(floatenergy)
 
 def gen_coulomb_column(matrix, labels):
@@ -86,21 +89,21 @@ def gen_coulomb_column(matrix, labels):
         coulomb_column.sort()
         atom_label = labels[i][0]
         if atom_label == 'C':
-            for i in range(0, Folds):
+            for i in range(0, args.randomizations):
                 # random.shuffle(coulomb_column)
                 while (len(coulomb_column) != width_of_output):
                     coulomb_column.append(0)
                 CarbonArray[CarbonWritten] = coulomb_column
                 CarbonWritten += 1
         if atom_label == 'H':
-            for i in range(0, Folds):
+            for i in range(0, args.randomizations):
                 # random.shuffle(coulomb_column)
                 while (len(coulomb_column) != width_of_output):
                     coulomb_column.append(0)
                 HydrogenArray[HydrogenWritten] = coulomb_column
                 HydrogenWritten += 1
         if atom_label == 'O':
-            for i in range(0, Folds):
+            for i in range(0, args.randomizations):
                 # random.shuffle(coulomb_column)
                 while (len(coulomb_column) != width_of_output):
                     coulomb_column.append(0)
@@ -109,7 +112,6 @@ def gen_coulomb_column(matrix, labels):
 
 
 def generate_random_mutations(Data_Array):
-    global Folds
     print "Random Folding Initiated"
     counter = 0
     Copy_Array = np.copy(Data_Array)
@@ -134,12 +136,6 @@ filelist = os.listdir(os.curdir)
 filelist.sort()
 master_dict = {}
 
-Cutoff = input('Enter Cutoff in angstroms: ')
-Folds = input('Enter the number of randomizations: ')
-try:
-    Cutoff = float(Cutoff)
-except:
-    Cutoff = input('Enter Cutoff in angstroms: ')
 
 for atomfilename in filelist:
     if atomfilename.endswith('int'):
@@ -153,49 +149,78 @@ for atomfilename in filelist:
             atomfilelist.append(atomfilename)
             master_dict[wavefunction] = atomfilelist
         if atomfilename.startswith('dsC7O2H10nsd') and ".wfnC" in atomfilename and atomfilename.endswith('.int'):
-            CarbonCounter += Folds
+            CarbonCounter += args.randomizations
         if atomfilename.startswith('dsC7O2H10nsd') and ".wfnH" in atomfilename and atomfilename.endswith('.int'):
-            HydrogenCounter += Folds
+            HydrogenCounter += args.randomizations
         if atomfilename.startswith('dsC7O2H10nsd') and ".wfnO" in atomfilename and atomfilename.endswith('.int'):
-            OxygenCounter += Folds
+            OxygenCounter += args.randomizations
 
-width_of_output = 18
-HydrogenArray = np.zeros([HydrogenCounter, width_of_output])
-CarbonArray = np.zeros([CarbonCounter, width_of_output])
-OxygenArray = np.zeros([OxygenCounter, width_of_output])
+def main(args):
+    width_of_output = 18
+    HydrogenArray = np.zeros([HydrogenCounter, width_of_output])
+    CarbonArray = np.zeros([CarbonCounter, width_of_output])
+    OxygenArray = np.zeros([OxygenCounter, width_of_output])
 
-HydrogenWritten = 0
-CarbonWritten = 0
-OxygenWritten = 0
+    HydrogenWritten = 0
+    CarbonWritten = 0
+    OxygenWritten = 0
 
-keylist = master_dict.keys()
-keylist.sort()
-for wavefunction in keylist:
-    print wavefunction
-    labels, distance_matrix = retrieve_coordinates(wavefunction, Cutoff)
-    gen_coulomb_column(distance_matrix, labels)
-    for intfile in master_dict[wavefunction]:
-        gen_energy_list(intfile)
+    keylist = master_dict.keys()
+    keylist.sort()
+    for wavefunction in keylist:
+        print wavefunction
+        labels, distance_matrix = retrieve_coordinates(wavefunction)
+        gen_coulomb_column(distance_matrix, labels)
+        for intfile in master_dict[wavefunction]:
+            gen_energy_list(intfile)
 
-HydrogenEnergyOut = np.asarray(HEnergyList)
-CarbonEnergyOut = np.asarray(CEnergyList)
-OxygenEnergyOut = np.asarray(OEnergyList)
+    HydrogenEnergyOut = np.asarray(HEnergyList)
+    CarbonEnergyOut = np.asarray(CEnergyList)
+    OxygenEnergyOut = np.asarray(OEnergyList)
 
-HydrogenArray = trim_zero_columns(HydrogenArray)
-CarbonArray = trim_zero_columns(CarbonArray)
-OxygenArray = trim_zero_columns(OxygenArray)
+    HydrogenArray = trim_zero_columns(HydrogenArray)
+    CarbonArray = trim_zero_columns(CarbonArray)
+    OxygenArray = trim_zero_columns(OxygenArray)
 
-HydrogenArray = generate_random_mutations(HydrogenArray)
-CarbonArray = generate_random_mutations(CarbonArray)
-OxygenArray = generate_random_mutations(OxygenArray)
+    HydrogenArray = generate_random_mutations(HydrogenArray)
+    CarbonArray = generate_random_mutations(CarbonArray)
+    OxygenArray = generate_random_mutations(OxygenArray)
 
-print "Hydrogen", HydrogenArray.shape, HydrogenEnergyOut.shape
-print "Carbon", CarbonArray.shape, CarbonEnergyOut.shape
-print "Oxygen", OxygenArray.shape, OxygenEnergyOut.shape
+    print "Hydrogen", HydrogenArray.shape, HydrogenEnergyOut.shape
+    print "Carbon", CarbonArray.shape, CarbonEnergyOut.shape
+    print "Oxygen", OxygenArray.shape, OxygenEnergyOut.shape
 
-np.save(('H_Out_Cutoff' + str(Cutoff) + 'Folds' + str(Folds)), HydrogenArray)
-np.save(('C_Out_Cutoff' + str(Cutoff) + 'Folds' + str(Folds)), CarbonArray)
-np.save(('O_Out_Cutoff' + str(Cutoff) + 'Folds' + str(Folds)), OxygenArray)
-np.save(('Energy_H_Out_Cutoff' + str(Cutoff) + 'Folds' + str(Folds)), HydrogenEnergyOut)
-np.save(('Energy_C_Out_Cutoff' + str(Cutoff) + 'Folds' + str(Folds)), CarbonEnergyOut)
-np.save(('Energy_O_Out_Cutoff' + str(Cutoff) + 'Folds' + str(Folds)), OxygenEnergyOut)
+    np.save(('H_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), HydrogenArray)
+    np.save(('C_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), CarbonArray)
+    np.save(('O_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), OxygenArray)
+    np.save(('Energy_H_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), HydrogenEnergyOut)
+    np.save(('Energy_C_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), CarbonEnergyOut)
+    np.save(('Energy_O_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), OxygenEnergyOut)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='This script automates the conversion of wfn and int files into atom-centric symmetry functions for use with neural network inputs. Note that each wavefunction must have a unique name, or behavior may become unpredictable')
+    parser.add_argument('-x', '--extension',
+                        dest='InputExtension',
+                        help='Extension of aimpac output scripts',
+                        default='.int')
+    parser.add_argument('-w', '--wavefunction',
+                        dest='WaveFunctionExtension',
+                        help='Extension of wavefunction files',
+                        default='.wfn')
+    parser.add_argument('-c', '--cutoff',
+                        dest='cutoff',
+                        help='Set cutoff distance in Bohr, default = none, suggested values are between 2.0 and 11.0 Bohr',
+                        type=float)
+    parser.add_argument('-r', '--randomizations',
+                        dest='lambda_value',
+                        help='Set lambda, the maximum angle to 0 or pi radians by setting to +1 or -1, respectively, required for G4 and G5 default=1',
+                        type=int,
+                        default=-1)
+    parser.add_argument('-a', '--atoms',
+                        dest='AtomInputList',
+                        help='Add to list of atoms to be inspected, takes input in the form Symbol:Name (eg, H:Hydrogen)',
+                        type=dict,
+                        default={'H': 'Hydrogen', 'C': 'Carbon', 'N': 'Nitgrogen', 'O': 'Oxygen'})
+    args = parser.parse_args()
+    main(args)
