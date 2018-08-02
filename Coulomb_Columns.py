@@ -19,8 +19,19 @@ class Atomic_Data:
     def increment_position(self):
         self.position_in_array += args.randomizations
 
-    def append_energy(self, energy):
-        self.energies.append(energy)
+
+    def add_energies(self, int_file):
+        with open(int_file, 'r') as atomic_file:
+            atomic_lines = atomic_file.readlines()
+            #make this compatable with the dictonary code
+            for line in atomic_lines:
+                if line == atomic_lines[6]:
+                    #Fix this to work with two character symbols
+                    atom_label = line[0]
+                if line.startswith('              K'):
+                    floatenergy = float(line.split()[3])
+            for i in range(0, args.randomizations):
+                self.energies.append(floatenergy)
 
     def initialize_numpy_bins(self, wavefunction_and_files):
         counter = 0
@@ -35,7 +46,7 @@ class Atomic_Data:
         else:
             self.coulomb_column_array = np.zeros([dimension0, args.length_of_wavefunction])
     
-    def save_out_data():
+    def save_out_data(self):
         if args.cutoff:
             np.save((self.atom_name + '_Cutoff' + str(args.cutoff) + 'Randomzations' +
                      str(args.randomizations)), self.coulomb_column_array)
@@ -117,21 +128,6 @@ def label_to_charge(label, AtomInputList):
         return AtomInputList[label][1]
 
 
-def gen_energy_list(int_file):
-    with open(int_file,'r') as atomic_file:
-        atomic_lines = atomic_file.readlines()
-        #make this compatable with the dictonary code
-        for line in atomic_lines:
-            if line == atomic_lines[6]:
-                #Fix this to work with two character symbols
-                atom_label = line[0]
-            if line.startswith('              K'):
-                floatenergy = float(line.split()[3])
-        for key in energy_dict.keys():
-            for i in range(0, args.randomizations):
-                energy_dict(key).append(floatenergy)
-
-
 def gen_coulomb_column(matrix, label):
     coulomb_column = []
     label_list = []
@@ -184,12 +180,16 @@ def main(args):
         labels, distance_matrix = generate_coulomb_matrix(wavefunction+'.wfn', AtomInputList)
         for i in range(0, len(distance_matrix)):
             gen_coulomb_column(distance_matrix[i], labels[i])
-            for atom_type in Atomic_Data_Dict:
-                if atom_type == labels[i]:
-                    
-        for intfile in wavefunction_and_file_dict[wavefunction]:
-            gen_energy_list(intfile)
+            atom_label = ''.join([j for j in labels[i] if not j.isdigit()])
+            for intfile in wavefunction_and_file_dict[wavefunction]:
+                #fix this
+                Atomic_Data_Dict[atom_label].add_energies(intfile)
+    for key in Atomic_Data_Dict.keys():
+        Atomic_Data_Dict[key].save_out_data()
 
+                if Atom_Class == atom_label:
+                    for intfile in wavefunction_and_file_dict[wavefunction]:
+                        Atomic_Data_Dict[Atom_Type].add_energies(intfile)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
