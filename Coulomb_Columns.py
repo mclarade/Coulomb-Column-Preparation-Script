@@ -45,7 +45,7 @@ class Atomic_Data:
             np.save((self.atom_name + 'Randomzations' +
                      str(args.randomizations)), self.coulomb_column_array)
             np.save((self.atom_name + 'Randomzations' +
-                     str(args.randomizations))+'Energies', self.energies))
+                     str(args.randomizations))+'Energies', self.energies)
 
 
 def file_list_builder():
@@ -132,26 +132,25 @@ def gen_energy_list(int_file):
                 energy_dict(key).append(floatenergy)
 
 
-def gen_coulomb_column(matrix, labels):
-    for i in range(0, len(matrix)):
-        #global CarbonWritten, OxygenWritten, HydrogenWritten
-        coulomb_column = []
-        label_list = []
-        for element in matrix[i]:
-            if element > 1e-7:
-                coulomb_column.append(element)
-        coulomb_column.sort()
-        label_list.append(labels[i][0])
-        for atom in args.AtomInputList:
-            if labels[i] == atom:
-                for i in range(0, args.randomizations):
-                    while (len(coulomb_column) != args.length_of_wavefunction):
-                        coulomb_column.append(0)
-                        Array[i] = coulomb_column
-    
+def gen_coulomb_column(matrix, label):
+    coulomb_column = []
+    label_list = []
+    coulomb_list = []
+    for element in matrix:
+        if element > 1e-7:
+            coulomb_column.append(element)
+    coulomb_column.sort()
+    label_list.append(label[0])
+    for atom in args.AtomInputList:
+        if label == atom:
+            for i in range(0, args.randomizations):
+                while (len(coulomb_column) != args.length_of_wavefunction):
+                    coulomb_column.append(0)
+                coulomb_list.append(coulomb_column)
 
 
-def generate_random_mutations(Data_Array):
+
+def shuffle_coulomb_columns(Data_Array):
     print "Random Folding Initiated"
     counter = 0
     Copy_Array = np.copy(Data_Array)
@@ -171,18 +170,6 @@ def trim_zero_columns(Array):
     return Array
 
 
-#depricated
-def initialize_dictionaries(array_dict_sorted_by_atom):
-    array_position_tracker = {}
-    energy_dictionary = {}
-    for key in array_dict_sorted_by_atom.keys():
-        array_position_tracker[key] = 0
-        energy_dictionary[key] = []
-    return array_position_tracker, energy_dictionary
-
-
-
-
 def main(args):
     with open('Atom_Dict.json') as AtomsIn:
         AtomInputList = json.loads(AtomsIn.read())
@@ -195,33 +182,14 @@ def main(args):
     for wavefunction in wavefunction_and_file_dict.keys():
         print wavefunction
         labels, distance_matrix = generate_coulomb_matrix(wavefunction+'.wfn', AtomInputList)
-        gen_coulomb_column(distance_matrix, labels)
+        for i in range(0, len(distance_matrix)):
+            gen_coulomb_column(distance_matrix[i], labels[i])
+            for atom_type in Atomic_Data_Dict:
+                if atom_type == labels[i]:
+                    
         for intfile in wavefunction_and_file_dict[wavefunction]:
             gen_energy_list(intfile)
-        
 
-    # HydrogenEnergyOut = np.asarray(HEnergyList)
-    # CarbonEnergyOut = np.asarray(CEnergyList)
-    # OxygenEnergyOut = np.asarray(OEnergyList)
-
-    # HydrogenArray = trim_zero_columns(HydrogenArray)
-    # CarbonArray = trim_zero_columns(CarbonArray)
-    # OxygenArray = trim_zero_columns(OxygenArray)
-
-    # HydrogenArray = generate_random_mutations(HydrogenArray)
-    # CarbonArray = generate_random_mutations(CarbonArray)
-    # OxygenArray = generate_random_mutations(OxygenArray)
-
-    # print "Hydrogen", HydrogenArray.shape, HydrogenEnergyOut.shape
-    # print "Carbon", CarbonArray.shape, CarbonEnergyOut.shape
-    # print "Oxygen", OxygenArray.shape, OxygenEnergyOut.shape
-
-    # np.save(('H_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), HydrogenArray)
-    # np.save(('C_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), CarbonArray)
-    # np.save(('O_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), OxygenArray)
-    # np.save(('Energy_H_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), HydrogenEnergyOut)
-    # np.save(('Energy_C_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), CarbonEnergyOut)
-    # np.save(('Energy_O_Out_Cutoff' + str(args.cutoff) + 'Randomzations' + str(args.randomizations)), OxygenEnergyOut)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
