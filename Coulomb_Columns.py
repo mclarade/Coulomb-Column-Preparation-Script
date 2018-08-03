@@ -23,19 +23,21 @@ class Atomic_Data:
     def add_energies(self, int_file):
         with open(int_file, 'r') as atomic_file:
             atomic_lines = atomic_file.readlines()
-            #make this compatable with the dictonary code
             for line in atomic_lines:
-                if line == atomic_lines[6]:
-                    #Fix this to work with two character symbols
-                    atom_label = line[0]
                 if line.startswith('              K'):
                     floatenergy = float(line.split()[3])
             for i in range(0, args.randomizations):
                 self.energies.append(floatenergy)
 
+    def take_coulomb_column(self, coulomb_column):
+        for i in range(0, args.randomizations):
+            self.coulomb_column_array[self.position_in_array] = coulomb_column
+            self.position_in_array += 1
+
     def initialize_numpy_bins(self, wavefunction_and_files):
         counter = 0
         string_check = str(args.WaveFunctionExtension + self.atom_type)
+        #check this later
         for intfile in wavefunction_and_files.values():
             for file in intfile:
                 if string_check in str(file):
@@ -45,7 +47,18 @@ class Atomic_Data:
             pass
         else:
             self.coulomb_column_array = np.zeros([dimension0, args.length_of_wavefunction])
-    
+
+    def trim_zero_columns(self):
+        self.coulomb_column_array = self.coulomb_column_array[:, (self.coulomb_column_array == 0).sum(axis=0) != self.coulomb_column_array.shape[0]]
+
+
+    def shuffle_coulomb_columns(self):
+        print "Random Folding Initiated " + self.atom_name
+        print self.coulomb_column_array.shape[0]
+        for i in range(0, self.coulomb_column_array.shape[0]):
+            np.random.shuffle(self.coulomb_column_array[i])
+
+
     def save_out_data(self):
         if args.cutoff:
             np.save((self.atom_name + '_Cutoff' + str(args.cutoff) + 'Randomzations' +
@@ -57,7 +70,9 @@ class Atomic_Data:
                      str(args.randomizations)), self.coulomb_column_array)
             np.save((self.atom_name + 'Randomzations' +
                      str(args.randomizations))+'Energies', self.energies)
-
+        print self.atom_name
+        print self.coulomb_column_array
+        print self.energies
 
 def file_list_builder():
     '''
@@ -115,6 +130,7 @@ def generate_coulomb_matrix(wavefunction, AtomInputList):
     charges = []
     for element in labels:
         element = ''.join([i for i in element if not i.isdigit()])
+        #can refer to class, but don't want to touch it right now
         charges.append(label_to_charge(element, AtomInputList))
     hcharges = np.asarray(charges)
     vcharges = hcharges.reshape(len(hcharges),-1)
@@ -128,42 +144,15 @@ def label_to_charge(label, AtomInputList):
         return AtomInputList[label][1]
 
 
-def gen_coulomb_column(matrix, label):
+def generate_coulomb_column(matrix, label):
     coulomb_column = []
-    label_list = []
-    coulomb_list = []
     for element in matrix:
         if element > 1e-7:
             coulomb_column.append(element)
     coulomb_column.sort()
-    label_list.append(label[0])
-    for atom in args.AtomInputList:
-        if label == atom:
-            for i in range(0, args.randomizations):
-                while (len(coulomb_column) != args.length_of_wavefunction):
-                    coulomb_column.append(0)
-                coulomb_list.append(coulomb_column)
-
-
-
-def shuffle_coulomb_columns(Data_Array):
-    print "Random Folding Initiated"
-    counter = 0
-    Copy_Array = np.copy(Data_Array)
-    Dimension0 = int(Copy_Array.shape[0])
-    Dimension1 = int(Copy_Array.shape[1])
-    Data_Array = np.zeros((Dimension0,Dimension1))
-    for line in Copy_Array:
-        copy_list = line.tolist()
-        np.random.shuffle(copy_list)
-        Data_Array[(counter)] = copy_list
-        counter += 1
-    return Data_Array
-
-
-def trim_zero_columns(Array):
-    Array = Array[:, (Array == 0).sum(axis=0) != Array.shape[0]]
-    return Array
+    while (len(coulomb_column) != args.length_of_wavefunction):
+        coulomb_column.append(0)
+    return coulomb_column
 
 
 def main(args):
@@ -176,20 +165,23 @@ def main(args):
         Atomic_Data_Dict[Atom_Type] = New_Class
         New_Class.initialize_numpy_bins(wavefunction_and_file_dict)
     for wavefunction in wavefunction_and_file_dict.keys():
-        print wavefunction
-        labels, distance_matrix = generate_coulomb_matrix(wavefunction+'.wfn', AtomInputList)
-        for i in range(0, len(distance_matrix)):
-            gen_coulomb_column(distance_matrix[i], labels[i])
+        labels, coulomb_matrix = generate_coulomb_matrix(wavefunction+'.wfn', AtomInputList)
+        for i in range(0, len(coulomb_matrix)):
             atom_label = ''.join([j for j in labels[i] if not j.isdigit()])
-            for intfile in wavefunction_and_file_dict[wavefunction]:
-                #fix this
-                Atomic_Data_Dict[atom_label].add_energies(intfile)
+            Atomic_Data_Dict[atom_label].take_coulomb_column(
+                generate_coulomb_column(coulomb_matrix[i], labels[i]))
+        for intfile in wavefunction_and_file_dict[wavefunction]:
+            for Atom_Type in Atomic_Data_Dict.keys():
+                if args.WaveFunctionExtension + Atom_Type in intfile:
+                    Atomic_Data_Dict[Atom_Type].add_energies(intfile)
     for key in Atomic_Data_Dict.keys():
+        Atomic_Data_Dict[key].trim_zero_columns()
+        Atomic_Data_Dict[key].shuffle_coulomb_columns()
         Atomic_Data_Dict[key].save_out_data()
 
-                if Atom_Class == atom_label:
-                    for intfile in wavefunction_and_file_dict[wavefunction]:
-                        Atomic_Data_Dict[Atom_Type].add_energies(intfile)
+                # if Atom_Class == atom_label:
+                #     for intfile in wavefunction_and_file_dict[wavefunction]:
+                #         Atomic_Data_Dict[Atom_Type].add_energies(intfile)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
