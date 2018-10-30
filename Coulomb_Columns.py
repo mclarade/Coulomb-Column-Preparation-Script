@@ -289,19 +289,19 @@ if __name__ == '__main__':
                         default={'H': 'Hydrogen', 'C': 'Carbon', 'N': 'Nitgrogen', 'O': 'Oxygen'})
     parser.add_argument('-l', '--length_of_wavefunction',
                         dest='length_of_wavefunction',
-                        help='set this value equal to the largest number of atoms in a wavefunction, less one, default = 18',
+                        help='set this value equal to the largest number of atoms in a wavefunction, less one, default = 20',
                         type=int,
                         default=20)
     parser.add_argument('--shuffle',
                         dest='shuffle',
                         help='Shuffle coulomb columns before saving, default = True',
                         type=bool,
-                        default=False)
+                        default=True)
     parser.add_argument('--scale_energies',
                         dest='scale_energies',
                         help='scale all energies using SKLearn scale function, default = False',
                         type=bool,
-                        default=True)
+                        default=False)
     parser.add_argument('--calculate_energy_statistics',
                         dest='statistics',
                         help='calculate energy statistics such as mean, stdev, etc, default = True',
