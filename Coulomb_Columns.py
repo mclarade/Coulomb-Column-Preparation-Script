@@ -1,11 +1,12 @@
 from __future__ import division
+from sklearn import preprocessing
+from scipy.spatial.distance import pdist, squareform
 import os
 import math
 import numpy as np
 import argparse
 import json
 
-from scipy.spatial.distance import pdist, squareform
 
 
 class Atomic_Data:
@@ -39,9 +40,12 @@ class Atomic_Data:
         Take_coulomb_column places each coulomb column into the appropriate array once
         for each time it is to be randomized.
         """
-        for _ in range(0, args.randomizations):
-            self.coulomb_column_array[self.position_in_array] = coulomb_column
-            self.position_in_array += 1
+        try: 
+            for _ in range(0, args.randomizations):
+                self.coulomb_column_array[self.position_in_array] = coulomb_column
+                self.position_in_array += 1
+        except:
+            pass
 
 
     def initialize_numpy_array(self, wavefunction_and_files):
@@ -70,7 +74,8 @@ class Atomic_Data:
         try:
             self.coulomb_column_array = self.coulomb_column_array[:, (self.coulomb_column_array == 0).sum(axis=0) != self.coulomb_column_array.shape[0]]
         except AttributeError:
-            raise AttributeError('Please remove unused atom type from Atom_Dict.json, ' + self.atom_name)
+            pass
+#            raise AttributeError('Please remove unused atom type from Atom_Dict.json, ' + self.atom_name)
 
 
     def shuffle_coulomb_columns(self):
@@ -79,10 +84,34 @@ class Atomic_Data:
         each coulomb column
         """
         print "Random Folding Initiated " + self.atom_name
-        print self.coulomb_column_array.shape[0]
-        for i in range(0, self.coulomb_column_array.shape[0]):
-            np.random.shuffle(self.coulomb_column_array[i])
+        try: 
+            print self.coulomb_column_array.shape[0]
+            for i in range(0, self.coulomb_column_array.shape[0]):
+                np.random.shuffle(self.coulomb_column_array[i])
+        except:
+            pass
 
+    def scale_energies(self):
+        # if args.scale_columns == True:
+        #     preprocessing.scale(self.coulomb_column_array, args.column_norm)
+        if type(self.energies) == list:
+            self.energies = np.asarray(self.energies)
+        self.energies = np.reshape(self.energies, (-1, 1))
+        self.energies = preprocessing.scale(self.energies, axis=0)
+
+    def calculate_energy_statistics(self):
+        self.energies = np.asarray(self.energies)
+        average_energy = np.average(self.energies)
+        standard_deviation_energy = np.std(self.energies)
+        median = np.median(self.energies)
+        minimum = np.min(self.energies)
+        maximum = np.max(self.energies)
+        with open(self.atom_name+'_statistics', 'w') as statistics:
+            statistics.write('Average Energy = ' + str(average_energy) + '\n')
+            statistics.write('Standard Deviation = ' + str(standard_deviation_energy) + '\n')
+            statistics.write('Median Energy = ' + str(median) + '\n')
+            statistics.write('Minimum Energy = ' + str(minimum) + '\n')
+            statistics.write('Maximum Energy = ' + str(maximum) + '\n')
 
     def save_out_data(self):
         """
@@ -213,7 +242,7 @@ def main(args):
         New_Class.initialize_numpy_array(wavefunction_and_file_dict)
     for wavefunction in wavefunction_and_file_dict.keys():
         labels, coulomb_matrix = generate_coulomb_matrix(wavefunction+'.wfn', AtomInputList)
-        if len(coulomb_matrix > args.length_of_wavefunction):
+        if len(coulomb_matrix) > args.length_of_wavefunction:
             raise AttributeError("Length of wavefunction was set smaller than the largest wavefunction")
         for i in range(0, len(coulomb_matrix)):
             atom_label = ''.join([j for j in labels[i] if not j.isdigit()])
@@ -225,9 +254,13 @@ def main(args):
                     Atomic_Data_Dict[atom_type].add_energies(intfile)
     for atom_type in Atomic_Data_Dict.keys():
         Atomic_Data_Dict[atom_type].trim_zero_columns()
-        Atomic_Data_Dict[atom_type].shuffle_coulomb_columns()
+        if args.statistics == True:
+            Atomic_Data_Dict[atom_type].calculate_energy_statistics()
+        if args.scale_energies == True:
+            Atomic_Data_Dict[atom_type].scale_energies()
+        if args.shuffle == True:
+            Atomic_Data_Dict[atom_type].shuffle_coulomb_columns()
         Atomic_Data_Dict[atom_type].save_out_data()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -258,6 +291,21 @@ if __name__ == '__main__':
                         dest='length_of_wavefunction',
                         help='set this value equal to the largest number of atoms in a wavefunction, less one, default = 18',
                         type=int,
-                        default=18)
+                        default=20)
+    parser.add_argument('--shuffle',
+                        dest='shuffle',
+                        help='Shuffle coulomb columns before saving, default = True',
+                        type=bool,
+                        default=False)
+    parser.add_argument('--scale_energies',
+                        dest='scale_energies',
+                        help='scale all energies using SKLearn scale function, default = False',
+                        type=bool,
+                        default=True)
+    parser.add_argument('--calculate_energy_statistics',
+                        dest='statistics',
+                        help='calculate energy statistics such as mean, stdev, etc, default = True',
+                        type=bool,
+                        default=True)
     args = parser.parse_args()
     main(args)
